@@ -51,8 +51,8 @@ void MP2Node::updateRing() {
 	 */
 	// Sort the list based on the hashCode
 	sort(curMemList.begin(), curMemList.end());
+	ring.clear();
 	ring = curMemList;
-
 	/*
 	 * Step 3: Run the stabilization protocol IF REQUIRED
 	 */
@@ -141,9 +141,9 @@ void MP2Node::clientRead(string key){
 	 */
 	g_transID++;
 	Message *mesg;
-
+	updateRing();
+	cout<< to_string(ring.size()) + "\t";
 	vector<Node> replicas = findNodes(key);
-	//updateRing();
 	for(vector<Node>::iterator it = replicas.begin(); it!=replicas.end(); it++){
 		mesg = new Message(g_transID, memberNode->addr, MessageType::READ, key);
 		emulNet->ENsend(&(memberNode->addr), (*(it)).getAddress(), mesg->toString());
@@ -247,8 +247,10 @@ string MP2Node::readKey(string key, int transID, Address coodAddr) {
 	string result = ht->read(key);
 	Message *mesg;
 
-	if(!result.empty())
-		log->logReadSuccess(&(memberNode->addr), false, transID, key, result);
+	if(!result.empty()){
+		Entry *en = new Entry(result);
+		log->logReadSuccess(&(memberNode->addr), false, transID, key, en->value);
+	}
 	else
 		log->logReadFail(&(memberNode->addr), false, transID, key);
 
@@ -335,7 +337,7 @@ void MP2Node::checkMessages() {
 	string val;
 	size_t pos;
 	size_t start;
-	int successCount, failureCount;
+	int successCount = 0, failureCount = 0;
 	Message *mesg;
 
 	// dequeue all messages and handle them
@@ -421,8 +423,10 @@ void MP2Node::checkMessages() {
 
 				statusHT->update(to_string(mesg->transID), tuple.at(0) + "::" + to_string(successCount) + "::" + to_string(failureCount)+ "::" + tuple.at(3) + "::" + tuple.at(4));
 
-				if(successCount == 2)
-					log->logReadSuccess(&(memberNode->addr), true, mesg->transID, tuple.at(3), tuple.at(4));
+				if(successCount == 2){
+					Entry *en = new Entry(mesg->value);
+					log->logReadSuccess(&(memberNode->addr), true, mesg->transID, tuple.at(3), en->value);
+				}
 				else if(failureCount == 2)
 					log->logReadFail(&(memberNode->addr), true, mesg->transID, tuple.at(3));
 
@@ -508,12 +512,27 @@ void MP2Node::stabilizationProtocol() {
 	/*
 	 * Implement this
 	 */
-	for (int i=0; i<ring.size(); i++){
-		Node addr = ring.at(i);
-		if(addr.getAddress() == &(memberNode->addr))
-		{
+	map<string, string> hash = ht->hashTable;
+	string key,value;
+	for(map<string,string>::iterator it = hash.begin(); it != hash.end(); it++) {
+	    key = it->first;
+	    value = it->second;
+	    Entry *en = new Entry(value);
 
-		}
+	    vector<Node> replicas = findNodes(key);
+
+
+
+	    switch(en->replica){
+	    case PRIMARY:
+
+
+	    	break;
+	    case SECONDARY:
+	    	break;
+	    case TERTIARY:
+	    	break;
+	    }
 	}
 }
 
