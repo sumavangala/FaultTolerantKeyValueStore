@@ -58,7 +58,7 @@ void MP2Node::updateRing() {
 	 */
 	// Run stabilization protocol if the hash table size is greater than zero and if there has been a changed in the ring
 	if(ht->currentSize() > 0){
-
+		stabilizationProtocol();
 	}
 }
 
@@ -143,7 +143,7 @@ void MP2Node::clientRead(string key){
 	Message *mesg;
 
 	vector<Node> replicas = findNodes(key);
-
+	//updateRing();
 	for(vector<Node>::iterator it = replicas.begin(); it!=replicas.end(); it++){
 		mesg = new Message(g_transID, memberNode->addr, MessageType::READ, key);
 		emulNet->ENsend(&(memberNode->addr), (*(it)).getAddress(), mesg->toString());
@@ -227,6 +227,7 @@ bool MP2Node::createKeyValue(string key, string value, ReplicaType replica, int 
 	mesg = new Message(transID, memberNode->addr, MessageType::REPLY, result);
 	emulNet->ENsend(&(memberNode->addr), &coodAddr, mesg->toString());
 
+	findNeighbors();
 	return result;
 }
 
@@ -377,7 +378,7 @@ void MP2Node::checkMessages() {
 				tuple.push_back(val.substr(start));
 				successCount = stoi(tuple.at(1));
 				failureCount = stoi(tuple.at(2));
-				//cout << val + "\t" + tuple.at(0) + "\t"+ tuple.at(1) + "\t"+ tuple.at(2) + "\t"+tuple.at(3) + "\t"+ tuple.at(4) + "\t"+ "\n";
+
 				if(mesg->success)
 					successCount = successCount + 1;
 				else
@@ -412,7 +413,7 @@ void MP2Node::checkMessages() {
 				tuple.push_back(val.substr(start));
 				successCount = stoi(tuple.at(1));
 				failureCount = stoi(tuple.at(2));
-				//cout << val + "\t" + tuple.at(0) + "\t"+ tuple.at(1) + "\t"+ tuple.at(2) + "\t"+tuple.at(3) + "\t"+ tuple.at(4) + "\t"+ "\n";
+
 				if(!((mesg->value).empty()))
 					successCount = successCount + 1;
 				else
@@ -507,4 +508,28 @@ void MP2Node::stabilizationProtocol() {
 	/*
 	 * Implement this
 	 */
+	for (int i=0; i<ring.size(); i++){
+		Node addr = ring.at(i);
+		if(addr.getAddress() == &(memberNode->addr))
+		{
+
+		}
+	}
+}
+
+void MP2Node:: findNeighbors(){
+	for (int i=0; i<ring.size(); i++){
+		Node addr = ring.at(i);
+		if((addr.nodeAddress) == (memberNode->addr))
+		{
+			hasMyReplicas.clear();
+			hasMyReplicas.push_back(ring.at((i+1)%ring.size()));
+			hasMyReplicas.push_back(ring.at((i+2)%ring.size()));
+			haveReplicasOf.clear();
+			haveReplicasOf.push_back(ring.at((i-1)%ring.size()));
+			haveReplicasOf.push_back(ring.at((i-2)%ring.size()));
+			break;
+		}
+
+	}
 }
