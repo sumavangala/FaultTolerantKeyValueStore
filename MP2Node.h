@@ -83,7 +83,7 @@ public:
 
 	// server
 	bool createKeyValue(string key, string value, ReplicaType replica, int transID, Address fromAddr);
-	string readKey(string key);
+	string readKey(string key, int transID, Address coodAddr);
 	bool updateKeyValue(string key, string value, ReplicaType replica, int transID, Address coodAddr);
 	bool deletekey(string key, int transID, Address coodAddr);
 

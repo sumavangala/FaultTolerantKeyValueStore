@@ -123,15 +123,7 @@ void MP2Node::clientCreate(string key, string value) {
 		mesg = new Message(g_transID, memberNode->addr, MessageType::CREATE, key, value, ReplicaType(distance(replicas.begin(), it)));
 		emulNet->ENsend(&(memberNode->addr), (*(it)).getAddress(), mesg->toString());
 	}
-	statusHT->create(to_string(g_transID),to_string(0));
-
-	//Log success if quorum of replies are received
-	/*if(true){
-		log->logCreateSuccess(&(memberNode->addr), true, g_transID, key, value);
-	}
-	else{
-		log->logCreateFail(&(memberNode->addr), true, g_transID, key, value);
-	}*/
+	statusHT->create(to_string(g_transID),"CREATE::" + to_string(0) + "::" + to_string(0) + "::" + key + "::" + value);
 }
 
 /**
@@ -147,6 +139,16 @@ void MP2Node::clientRead(string key){
 	/*
 	 * Implement this
 	 */
+	g_transID++;
+	Message *mesg;
+
+	vector<Node> replicas = findNodes(key);
+
+	for(vector<Node>::iterator it = replicas.begin(); it!=replicas.end(); it++){
+		mesg = new Message(g_transID, memberNode->addr, MessageType::READ, key);
+		emulNet->ENsend(&(memberNode->addr), (*(it)).getAddress(), mesg->toString());
+	}
+	statusHT->create(to_string(g_transID),"READ::" + to_string(0) + "::" + to_string(0) + "::" + key + "::" + "");
 }
 
 /**
@@ -162,7 +164,7 @@ void MP2Node::clientUpdate(string key, string value){
 	/*
 	 * Implement this
 	 */
-	g_transID++;
+	/*g_transID++;
 	Message *mesg;
 
 	vector<Node> replicas = findNodes(key);
@@ -171,7 +173,7 @@ void MP2Node::clientUpdate(string key, string value){
 		mesg = new Message(g_transID, memberNode->addr, MessageType::UPDATE, key, value, ReplicaType(distance(replicas.begin(), it)));
 		emulNet->ENsend(&(memberNode->addr), (*(it)).getAddress(), mesg->toString());
 	}
-	statusHT->create(to_string(g_transID),to_string(0));
+	statusHT->create(to_string(g_transID),to_string(0));*/
 }
 
 /**
@@ -196,7 +198,7 @@ void MP2Node::clientDelete(string key){
 		mesg = new Message(g_transID, memberNode->addr, MessageType::DELETE, key);
 		emulNet->ENsend(&(memberNode->addr), (*(it)).getAddress(), mesg->toString());
 	}
-	statusHT->create(to_string(g_transID),to_string(0));
+	statusHT->create(to_string(g_transID),"DELETE::" + to_string(0) + "::" + to_string(0) + "::" + key + "::" + "");
 }
 
 /**
@@ -236,11 +238,23 @@ bool MP2Node::createKeyValue(string key, string value, ReplicaType replica, int 
  * 			    1) Read key from local hash table
  * 			    2) Return value
  */
-string MP2Node::readKey(string key) {
+string MP2Node::readKey(string key, int transID, Address coodAddr) {
 	/*
 	 * Implement this
 	 */
 	// Read key from local hash table and return value
+	string result = ht->read(key);
+	Message *mesg;
+
+	if(!result.empty())
+		log->logReadSuccess(&(memberNode->addr), false, transID, key, result);
+	else
+		log->logReadFail(&(memberNode->addr), false, transID, key);
+
+	mesg = new Message(transID, memberNode->addr, result);
+	emulNet->ENsend(&(memberNode->addr), &coodAddr, mesg->toString());
+
+	return result;
 }
 
 /**
@@ -256,7 +270,7 @@ bool MP2Node::updateKeyValue(string key, string value, ReplicaType replica, int 
 	 * Implement this
 	 */
 	// Update key in local hash table and return true or false
-	Entry *en = new Entry(value, par->getcurrtime(), replica);
+	/*Entry *en = new Entry(value, par->getcurrtime(), replica);
 	bool result = ht->update(key,en->convertToString());
 	Message *mesg;
 
@@ -268,7 +282,7 @@ bool MP2Node::updateKeyValue(string key, string value, ReplicaType replica, int 
 	mesg = new Message(transID, memberNode->addr, MessageType::REPLY, result);
 	emulNet->ENsend(&(memberNode->addr), &coodAddr, mesg->toString());
 
-	return result;
+	return result;*/
 }
 
 /**
@@ -312,12 +326,15 @@ void MP2Node::checkMessages() {
 	 */
 	char * data;
 	int size;
-	bool result;
-	int replyCount;
 
 	/*
 	 * Declare your local variables here
 	 */
+	bool result;
+	string val;
+	size_t pos;
+	size_t start;
+	int successCount, failureCount;
 	Message *mesg;
 
 	// dequeue all messages and handle them
@@ -330,37 +347,84 @@ void MP2Node::checkMessages() {
 		memberNode->mp2q.pop();
 
 		string message(data, data + size);
-
 		mesg = new Message(message);
+		vector<string> tuple;
+
 		switch(mesg->type)
 		{
 			case CREATE:
-				result = createKeyValue(mesg->key, mesg-> value, mesg->replica, mesg->transID, mesg->fromAddr);
-				if(result){
-
-				}
-				else {
-
-				}
+				createKeyValue(mesg->key, mesg-> value, mesg->replica, mesg->transID, mesg->fromAddr);
 				break;
 			case DELETE:
-				result = deletekey(mesg->key, mesg->transID, mesg->fromAddr);
+				deletekey(mesg->key, mesg->transID, mesg->fromAddr);
 				break;
 			case READ:
+				readKey(mesg->key, mesg->transID, mesg->fromAddr);
 				break;
 			case UPDATE:
-				result = updateKeyValue(mesg->key, mesg-> value, mesg->replica, mesg->transID, mesg->fromAddr);
+				//result = updateKeyValue(mesg->key, mesg-> value, mesg->replica, mesg->transID, mesg->fromAddr);
 				break;
 			case REPLY:
-				replyCount = stoi(statusHT->read(to_string(mesg->transID)));
-				replyCount = replyCount + 1;
-				statusHT->update(to_string(mesg->transID), to_string(replyCount));
-				/*if(replyCount == 2){
-					log->logCreateSuccess(&(memberNode->addr), true, mesg->transID, mesg->key, mesg-> value);
-					//statusHT->update(to_string(mesg->transID), to_string(0));
-				}*/
+				val = statusHT->read(to_string(mesg->transID));
+				pos = val.find("::");
+				start = 0;
+				while (pos != string::npos) {
+					string field = val.substr(start, pos-start);
+					tuple.push_back(field);
+					start = pos + 2;
+					pos = val.find("::", start);
+				}
+				tuple.push_back(val.substr(start));
+				successCount = stoi(tuple.at(1));
+				failureCount = stoi(tuple.at(2));
+				//cout << val + "\t" + tuple.at(0) + "\t"+ tuple.at(1) + "\t"+ tuple.at(2) + "\t"+tuple.at(3) + "\t"+ tuple.at(4) + "\t"+ "\n";
+				if(mesg->success)
+					successCount = successCount + 1;
+				else
+					failureCount = failureCount + 1;
+
+				statusHT->update(to_string(mesg->transID), tuple.at(0) + "::" + to_string(successCount) + "::" + to_string(failureCount)+ "::" + tuple.at(3) + "::" + tuple.at(4));
+				if(tuple.at(0) == "CREATE"){
+					if(successCount == 2)
+						log->logCreateSuccess(&(memberNode->addr), true, mesg->transID, tuple.at(3), tuple.at(4));
+					else if(failureCount == 2)
+						log->logCreateFail(&(memberNode->addr), true, mesg->transID, tuple.at(3), tuple.at(4));
+				}
+				else if(tuple.at(0) == "DELETE"){
+					if(successCount == 2)
+						log->logDeleteSuccess(&(memberNode->addr), true, mesg->transID, tuple.at(3));
+					else if(failureCount == 2)
+						log->logDeleteFail(&(memberNode->addr), true, mesg->transID, tuple.at(3));
+				}
+
 				break;
+
 			case READREPLY:
+				val = statusHT->read(to_string(mesg->transID));
+				pos = val.find("::");
+				start = 0;
+				while (pos != string::npos) {
+					string field = val.substr(start, pos-start);
+					tuple.push_back(field);
+					start = pos + 2;
+					pos = val.find("::", start);
+				}
+				tuple.push_back(val.substr(start));
+				successCount = stoi(tuple.at(1));
+				failureCount = stoi(tuple.at(2));
+				//cout << val + "\t" + tuple.at(0) + "\t"+ tuple.at(1) + "\t"+ tuple.at(2) + "\t"+tuple.at(3) + "\t"+ tuple.at(4) + "\t"+ "\n";
+				if(!((mesg->value).empty()))
+					successCount = successCount + 1;
+				else
+					failureCount = failureCount + 1;
+
+				statusHT->update(to_string(mesg->transID), tuple.at(0) + "::" + to_string(successCount) + "::" + to_string(failureCount)+ "::" + tuple.at(3) + "::" + tuple.at(4));
+
+				if(successCount == 2)
+					log->logReadSuccess(&(memberNode->addr), true, mesg->transID, tuple.at(3), tuple.at(4));
+				else if(failureCount == 2)
+					log->logReadFail(&(memberNode->addr), true, mesg->transID, tuple.at(3));
+
 				break;
 		}
 		/*
