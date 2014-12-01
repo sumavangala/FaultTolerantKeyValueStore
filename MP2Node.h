@@ -30,6 +30,7 @@
  * 				4) Client side CRUD APIs
  */
 static HashTable *statusHT = new HashTable();
+static int TIME_OUT = 10;
 
 class MP2Node {
 private:
@@ -49,6 +50,8 @@ private:
 	EmulNet * emulNet;
 	// Object of Log
 	Log * log;
+
+	int ringSize;
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);
