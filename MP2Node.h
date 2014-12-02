@@ -29,6 +29,8 @@
  * 				3) Server side CRUD APIs
  * 				4) Client side CRUD APIs
  */
+// Global variable - hash table storing all the transaction details
+// key = tranID; value= operationtype::timestamp::successcount::failurecount::key::value
 static HashTable *statusHT = new HashTable();
 static int TIME_OUT = 10;
 
@@ -50,7 +52,7 @@ private:
 	EmulNet * emulNet;
 	// Object of Log
 	Log * log;
-
+	// Stores the current ring size - to track the changes in the ring
 	int ringSize;
 
 public:
